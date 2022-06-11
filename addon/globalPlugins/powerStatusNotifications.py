@@ -1,28 +1,35 @@
 # -*- coding: UTF-8 -*-
-# power status notiffications: This add-on plays a tone when the power status changes.
+# power status notifications: This add-on plays a tone when the power status changes.
 # Copyright (C) 2019 David CM
 # Author: David CM <dhf360@gmail.com>
 # Released under GPL 2
-#globalPlugins/powerStatusNotiffications.py
+#globalPlugins/powerStatusNotifications.py
 
-import extensionPoints, globalPluginHandler, tones, windowUtils, winKernel, addonHandler
+import addonHandler
+import core
+import globalPluginHandler
+import tones
+import winKernel
 
-post_windowMessageReceipt = extensionPoints.Action()
 
-class MessageWindow(windowUtils.CustomWindow):
-	className = u"PowerStatusNotiffications"
+class GlobalPlugin(globalPluginHandler.GlobalPlugin):
 	WM_POWERBROADCAST = 0x218
 	PBT_APMPOWERSTATUSCHANGE = 0xA
 	UNKNOWN_BATTERY_STATUS = 0xFF
 	AC_ONLINE = 0X1
 	NO_SYSTEM_BATTERY = 0X80
-	def __init__(self, windowName=None):
-		super(MessageWindow, self).__init__(windowName)
+
+	def __init__(self):
+		super().__init__()
 		self.oldBatteryStatus = None
 		self.handlePowerStatusChange()
+		core.post_windowMessageReceipt.register(self.processMessages)
 
-	def windowProc(self, hwnd, msg, wParam, lParam):
-		post_windowMessageReceipt.notify(msg=msg, wParam=wParam, lParam=lParam)
+	def terminate(self):
+		super().terminate()
+		core.post_windowMessageReceipt.unregister(self.processMessages)
+
+	def processMessages(self, msg, wParam, lParam):
 		if msg == self.WM_POWERBROADCAST and wParam == self.PBT_APMPOWERSTATUSCHANGE:
 			self.handlePowerStatusChange()
 
@@ -35,15 +42,7 @@ class MessageWindow(windowUtils.CustomWindow):
 			return
 		self.oldBatteryStatus = sps.ACLineStatus
 		if sps.ACLineStatus & self.AC_ONLINE:
-			# Notiffication when the battery is plugged in, and now is charging.
+			# Notification when the battery is plugged in, and now is charging.
 			tones.beep(1120, 120, 50)
-		else: tones.beep(280, 120, 50)
-
-class GlobalPlugin(globalPluginHandler.GlobalPlugin):
-	def __init__(self):
-		super(globalPluginHandler.GlobalPlugin, self).__init__()
-		self.messageWindow = MessageWindow()
-
-	def terminate(self):
-		super(GlobalPlugin, self).terminate()
-		self.messageWindow.destroy()
+		else:
+			tones.beep(280, 120, 50)
